@@ -73,7 +73,7 @@ class Solver(object):
         train_correct = 0
         total = 0
 
-        for batch_num, (data, target) in enumerate(self.train_loader):
+        for batch_num, (data, target) in tqdm(enumerate(self.train_loader)):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
@@ -87,7 +87,7 @@ class Solver(object):
             # train_correct incremented by one if predicted right
             train_correct += np.sum(prediction[1].cpu().numpy() == target.cpu().numpy())
 
-            tqdm(batch_num, len(self.train_loader), 'Loss: %.4f | Acc: %.3f%% (%d/%d)'
+            print(batch_num, len(self.train_loader), 'Loss: %.4f | Acc: %.3f%% (%d/%d)'
                          % (train_loss / (batch_num + 1), 100. * train_correct / total, train_correct, total))
 
         return train_loss, train_correct / total
@@ -100,7 +100,7 @@ class Solver(object):
         total = 0
 
         with torch.no_grad():
-            for batch_num, (data, target) in enumerate(self.test_loader):
+            for batch_num, (data, target) in tqdm(enumerate(self.test_loader)):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
                 loss = self.criterion(output, target)
@@ -109,7 +109,7 @@ class Solver(object):
                 total += target.size(0)
                 test_correct += np.sum(prediction[1].cpu().numpy() == target.cpu().numpy())
 
-                tqdm(batch_num, len(self.test_loader), 'Loss: %.4f | Acc: %.3f%% (%d/%d)'
+                print(batch_num, len(self.test_loader), 'Loss: %.4f | Acc: %.3f%% (%d/%d)'
                              % (test_loss / (batch_num + 1), 100. * test_correct / total, test_correct, total))
 
         return test_loss, test_correct / total
