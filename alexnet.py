@@ -1,8 +1,7 @@
-#https://github.com/pytorch/vision/blob/master/torchvision/models/alexnet.py
+# modified from https://github.com/pytorch/vision/blob/master/torchvision/models/alexnet.py
 
 import torch
 import torch.nn as nn
-from .utils import load_state_dict_from_url
 
 
 __all__ = ['AlexNet', 'alexnet']

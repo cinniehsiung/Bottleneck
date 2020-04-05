@@ -1,5 +1,6 @@
 # modified from https://github.com/icpm/pytorch-cifar10/blob/master/main.py
 
+import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
 import torch.backends.cudnn as cudnn
@@ -9,8 +10,8 @@ import numpy as np
 
 import argparse
 
-import alexnet
-from misc import progress_bar
+from alexnet import AlexNet
+from tqdm import tqdm
 
 
 CLASSES = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
@@ -21,7 +22,7 @@ def main():
     parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
     parser.add_argument('--epoch', default=200, type=int, help='number of epochs tp train for')
     parser.add_argument('--trainBatchSize', default=100, type=int, help='training batch size')
-    parser.add_argument('--testBatchSize', default=100, type=in, help='testing batch size')
+    parser.add_argument('--testBatchSize', default=100, type=int, help='testing batch size')
     parser.add_argument('--cuda', default=torch.cuda.is_available(), type=bool, help='whether cuda is in use')
     args = parser.parse_args()
 
@@ -86,7 +87,7 @@ class Solver(object):
             # train_correct incremented by one if predicted right
             train_correct += np.sum(prediction[1].cpu().numpy() == target.cpu().numpy())
 
-            progress_bar(batch_num, len(self.train_loader), 'Loss: %.4f | Acc: %.3f%% (%d/%d)'
+            tqdm(batch_num, len(self.train_loader), 'Loss: %.4f | Acc: %.3f%% (%d/%d)'
                          % (train_loss / (batch_num + 1), 100. * train_correct / total, train_correct, total))
 
         return train_loss, train_correct / total
@@ -108,7 +109,7 @@ class Solver(object):
                 total += target.size(0)
                 test_correct += np.sum(prediction[1].cpu().numpy() == target.cpu().numpy())
 
-                progress_bar(batch_num, len(self.test_loader), 'Loss: %.4f | Acc: %.3f%% (%d/%d)'
+                tqdm(batch_num, len(self.test_loader), 'Loss: %.4f | Acc: %.3f%% (%d/%d)'
                              % (test_loss / (batch_num + 1), 100. * test_correct / total, test_correct, total))
 
         return test_loss, test_correct / total
