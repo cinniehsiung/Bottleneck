@@ -46,8 +46,8 @@ class Solver(object):
         self.test_loader = None
 
     def load_data(self):
-        train_transform = transforms.Compose([transforms.RandomHorizontalFlip(), transforms.ToTensor()])
-        test_transform = transforms.Compose([transforms.ToTensor()])
+        train_transform = transforms.Compose([transforms.CenterCrop(28), transforms.ToTensor()])
+        test_transform = transforms.Compose([transforms.CenterCrop(28), transforms.ToTensor()])
         train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=train_transform)
         self.train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.train_batch_size, shuffle=True)
         test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=test_transform)
