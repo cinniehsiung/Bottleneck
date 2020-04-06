@@ -31,6 +31,7 @@ def main():
     parser.add_argument('--N', default=1000, type=int)
     parser.add_argument('--trainBatchSize', default=500, type=int)
     parser.add_argument('--testBatchSize', default=100, type=int)
+    parser.add_argument('--useBatchNorm', default=True, type=bool)
     parser.add_argument('--cuda', default=torch.cuda.is_available(), type=bool)
     args = parser.parse_args()
 
@@ -48,6 +49,7 @@ class Solver(object):
         self.N = config.N
         self.train_batch_size = config.trainBatchSize
         self.test_batch_size = config.testBatchSize
+        self.use_bn = config.useBatchNorm
         self.criterion = None
         self.optimizer = None
         self.scheduler = None
@@ -76,7 +78,7 @@ class Solver(object):
         else:
             self.device = torch.device('cpu')
 
-        self.model = AlexNet(alpha=self.alpha).to(self.device)
+        self.model = AlexNet(alpha=self.alpha, use_bn=self.use_bn).to(self.device)
 
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr, momentum=self.momentum)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=140)

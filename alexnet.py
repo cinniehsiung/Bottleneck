@@ -8,7 +8,7 @@ from layers import LogNormalDropout
 
 class AlexNet(nn.Module):
 
-    def __init__(self, alpha, num_classes=10):
+    def __init__(self, alpha, num_classes=10, use_bn=True):
         super(AlexNet, self).__init__()
         self.features = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=5, padding=2),
@@ -16,19 +16,19 @@ class AlexNet(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
             nn.Conv2d(64, 64, kernel_size=5, padding=2),
-            #BN
             LogNormalDropout(alpha=alpha),
+            nn.BatchNorm2d(num_features=64) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
         )
         self.classifier = nn.Sequential(
             nn.Linear(7*7*64, 384),
             LogNormalDropout(alpha=alpha),
-            # BN
+            nn.BatchNorm1d(num_features=384) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
             nn.Linear(384, 192),
             LogNormalDropout(alpha=alpha),
-            # BN
+            nn.BatchNorm1d(num_features=192) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
             nn.Linear(192, 10),
             LogNormalDropout(alpha=alpha)
