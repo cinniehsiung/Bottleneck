@@ -4,6 +4,7 @@
 
 import torch
 import torch.nn as nn
+from layers import LogNormalDropout 
 
 class AlexNet(nn.Module):
 
@@ -11,21 +12,26 @@ class AlexNet(nn.Module):
         super(AlexNet, self).__init__()
         self.features = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=5, padding=2),
+            LogNormalDropout(alpha=0.2),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
             nn.Conv2d(64, 64, kernel_size=5, padding=2),
-            # BN
+            #BN
+            LogNormalDropout(alpha = 0.2),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
         )
         self.classifier = nn.Sequential(
             nn.Linear(7*7*64, 384),
+            LogNormalDropout(alpha=0.2),
             # BN
             nn.ReLU(inplace=True),
             nn.Linear(384, 192),
+            LogNormalDropout(alpha=0.2),
             # BN
             nn.ReLU(inplace=True),
             nn.Linear(192, 10),
+            LogNormalDropout(alpha=0.2)
             # nn.Softmax(dim=1) # using CrossEntropyLoss
         )
 
