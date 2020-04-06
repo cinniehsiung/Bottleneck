@@ -26,7 +26,7 @@ class AlexNet(nn.Module):
             # BN
             nn.ReLU(inplace=True),
             nn.Linear(192, 10),
-            nn.Softmax(dim=1)
+            # nn.Softmax(dim=1) # using CrossEntropyLoss
         )
 
     def forward(self, x):

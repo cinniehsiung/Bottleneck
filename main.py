@@ -18,12 +18,19 @@ CLASSES = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship'
 
 
 def main():
+    # Soatto entanglement p23:
+    # sgd with initial lr = [0.02, 0.005], momentum 0.9
+    # decay every 140 epochs
+    # batch size 500
+    # dataset size N varies from 100 to 50k
     parser = argparse.ArgumentParser(description="cifar-10 with PyTorch")
-    parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
-    parser.add_argument('--epoch', default=200, type=int, help='number of epochs tp train for')
-    parser.add_argument('--trainBatchSize', default=100, type=int, help='training batch size')
-    parser.add_argument('--testBatchSize', default=100, type=int, help='testing batch size')
-    parser.add_argument('--cuda', default=torch.cuda.is_available(), type=bool, help='whether cuda is in use')
+    parser.add_argument('--lr', default=0.005, type=float)
+    parser.add_argument('--momentum', default=0.9, type=float)
+    parser.add_argument('--epochs', default=360, type=int)
+    parser.add_argument('--N', default=1000, type=int)
+    parser.add_argument('--trainBatchSize', default=500, type=int)
+    parser.add_argument('--testBatchSize', default=100, type=int)
+    parser.add_argument('--cuda', default=torch.cuda.is_available(), type=bool)
     args = parser.parse_args()
 
     solver = Solver(args)
@@ -34,7 +41,9 @@ class Solver(object):
     def __init__(self, config):
         self.model = None
         self.lr = config.lr
-        self.epochs = config.epoch
+        self.momentum = config.momentum
+        self.epochs = config.epochs
+        self.N = config.N
         self.train_batch_size = config.trainBatchSize
         self.test_batch_size = config.testBatchSize
         self.criterion = None
@@ -46,12 +55,16 @@ class Solver(object):
         self.test_loader = None
 
     def load_data(self):
-        train_transform = transforms.Compose([transforms.CenterCrop(28), transforms.ToTensor()])
-        test_transform = transforms.Compose([transforms.CenterCrop(28), transforms.ToTensor()])
-        train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=train_transform)
+        mean_var = (125.3, 123.0, 113.9), (63.0, 62.1, 66.7)
+        transform = transforms.Compose([transforms.CenterCrop(28), transforms.ToTensor(), transforms.Normalize(*mean_var, inplace=True)])
+        train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
         self.train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.train_batch_size, shuffle=True)
-        test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=test_transform)
+        test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
         self.test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=self.test_batch_size, shuffle=False)
+
+        assert self.N <= 50000
+        if self.N < 50000:
+            train_set.data = train_set.data[:self.N]
 
     def load_model(self):
         if self.cuda:
@@ -62,18 +75,19 @@ class Solver(object):
 
         self.model = AlexNet().to(self.device)
 
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
-        self.scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[75, 150], gamma=0.5)
+        self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr, momentum=self.momentum)
+        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=140)
         self.criterion = nn.CrossEntropyLoss().to(self.device)
 
     def train(self):
-        print("train:")
+        # print("train:")
         self.model.train()
         train_loss = 0
         train_correct = 0
         total = 0
 
-        for batch_num, (data, target) in tqdm(enumerate(self.train_loader)):
+        pbar = tqdm(self.train_loader)
+        for batch_num, (data, target) in enumerate(pbar):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
@@ -83,24 +97,23 @@ class Solver(object):
             train_loss += loss.item()
             prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
             total += target.size(0)
-
-            # train_correct incremented by one if predicted right
             train_correct += np.sum(prediction[1].cpu().numpy() == target.cpu().numpy())
 
-            print(batch_num, len(self.train_loader), 'Loss: %.4f | Acc: %.3f%% (%d/%d)'
-                         % (train_loss / (batch_num + 1), 100. * train_correct / total, train_correct, total))
+            pbar.set_description('Train')
+            # pbar.set_description('Train epoch {}/{}'.format(epoch, self.epochs))
+            pbar.set_postfix(loss=train_loss, acc=100. * train_correct / total, total=total)
 
         return train_loss, train_correct / total
 
     def test(self):
-        print("test:")
         self.model.eval()
         test_loss = 0
         test_correct = 0
         total = 0
 
         with torch.no_grad():
-            for batch_num, (data, target) in tqdm(enumerate(self.test_loader)):
+            pbar = tqdm(self.train_loader)
+            for batch_num, (data, target) in enumerate(pbar):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
                 loss = self.criterion(output, target)
@@ -109,8 +122,8 @@ class Solver(object):
                 total += target.size(0)
                 test_correct += np.sum(prediction[1].cpu().numpy() == target.cpu().numpy())
 
-                print(batch_num, len(self.test_loader), 'Loss: %.4f | Acc: %.3f%% (%d/%d)'
-                             % (test_loss / (batch_num + 1), 100. * test_correct / total, test_correct, total))
+                pbar.set_description(' Test')
+                pbar.set_postfix(loss=test_loss, acc=100. * test_correct / total, total=total)
 
         return test_loss, test_correct / total
 
@@ -123,15 +136,15 @@ class Solver(object):
         self.load_data()
         self.load_model()
         accuracy = 0
-        for epoch in range(1, self.epochs + 1):
-            self.scheduler.step(epoch)
-            print("\n===> epoch: %d/200" % epoch)
+        for epoch in tqdm(range(1, self.epochs + 1)):
+            # print("\n===> epoch: %d/200" % epoch)
             train_result = self.train()
-            print(train_result)
+            self.scheduler.step(epoch)
+            # print(train_result)
             test_result = self.test()
-            accuracy = max(accuracy, test_result[1])
+            # accuracy = max(accuracy, test_result[1])
             if epoch == self.epochs:
-                print("===> BEST ACC. PERFORMANCE: %.3f%%" % (accuracy * 100))
+                # print("===> BEST ACC. PERFORMANCE: %.3f%%" % (accuracy * 100))
                 self.save()
 
 
