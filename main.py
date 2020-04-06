@@ -31,7 +31,10 @@ def main():
     parser.add_argument('--N', default=1000, type=int)
     parser.add_argument('--trainBatchSize', default=500, type=int)
     parser.add_argument('--testBatchSize', default=100, type=int)
-    parser.add_argument('--useBatchNorm', default=True, type=bool)
+    # parser.add_argument('--useBatchNorm', default=True, type=bool)
+    parser.add_argument('--batchnorm', dest='batchnorm', action='store_true')
+    parser.add_argument('--no-batchnorm', dest='batchnorm', action='store_false')
+    parser.set_defaults(batchnorm=True)
     parser.add_argument('--cuda', default=torch.cuda.is_available(), type=bool)
     args = parser.parse_args()
 
@@ -49,7 +52,7 @@ class Solver(object):
         self.N = config.N
         self.train_batch_size = config.trainBatchSize
         self.test_batch_size = config.testBatchSize
-        self.use_bn = config.useBatchNorm
+        self.use_bn = config.batchnorm
         self.criterion = None
         self.optimizer = None
         self.scheduler = None
@@ -116,7 +119,7 @@ class Solver(object):
         total = 0
 
         with torch.no_grad():
-            pbar = tqdm(self.train_loader)
+            pbar = tqdm(self.test_loader)
             for batch_num, (data, target) in enumerate(pbar):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
