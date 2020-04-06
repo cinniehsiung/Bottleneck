@@ -8,30 +8,30 @@ from layers import LogNormalDropout
 
 class AlexNet(nn.Module):
 
-    def __init__(self, alpha, num_classes=10, use_bn=True):
+    def __init__(self, alpha, B, num_classes=10, use_bn=True):
         super(AlexNet, self).__init__()
         self.features = nn.Sequential(
+            LogNormalDropout(shape=(B, 3, 28, 28), alpha=alpha),
             nn.Conv2d(3, 64, kernel_size=5, padding=2),
-            LogNormalDropout(alpha=alpha),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
+            LogNormalDropout(shape=(B, 64, 14, 14), alpha=alpha),
             nn.Conv2d(64, 64, kernel_size=5, padding=2),
-            LogNormalDropout(alpha=alpha),
             nn.BatchNorm2d(num_features=64) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
         )
         self.classifier = nn.Sequential(
+            LogNormalDropout(shape=(B, 7*7*64), alpha=alpha),
             nn.Linear(7*7*64, 384),
-            LogNormalDropout(alpha=alpha),
             nn.BatchNorm1d(num_features=384) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
+            LogNormalDropout(shape=(B, 384), alpha=alpha),
             nn.Linear(384, 192),
-            LogNormalDropout(alpha=alpha),
             nn.BatchNorm1d(num_features=192) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
+            LogNormalDropout(shape=(B, 192), alpha=alpha),
             nn.Linear(192, 10),
-            LogNormalDropout(alpha=alpha)
             # nn.Softmax(dim=1) # using CrossEntropyLoss
         )
 

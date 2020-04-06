@@ -30,7 +30,7 @@ def main():
     parser.add_argument('--epochs', default=360, type=int)
     parser.add_argument('--N', default=1000, type=int)
     parser.add_argument('--trainBatchSize', default=500, type=int)
-    parser.add_argument('--testBatchSize', default=100, type=int)
+    parser.add_argument('--testBatchSize', default=500, type=int)
     # parser.add_argument('--useBatchNorm', default=True, type=bool)
     parser.add_argument('--batchnorm', dest='batchnorm', action='store_true')
     parser.add_argument('--no-batchnorm', dest='batchnorm', action='store_false')
@@ -38,8 +38,11 @@ def main():
     parser.add_argument('--cuda', default=torch.cuda.is_available(), type=bool)
     args = parser.parse_args()
 
-    solver = Solver(args)
-    solver.run()
+    for i in range(1, 11):
+        alpha = i/10
+        args.alpha = alpha
+        solver = Solver(args)
+        solver.run()
 
 
 class Solver(object):
@@ -81,7 +84,7 @@ class Solver(object):
         else:
             self.device = torch.device('cpu')
 
-        self.model = AlexNet(alpha=self.alpha, use_bn=self.use_bn).to(self.device)
+        self.model = AlexNet(alpha=self.alpha, B=500, use_bn=self.use_bn).to(self.device)
 
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr, momentum=self.momentum)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=140)

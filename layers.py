@@ -3,24 +3,19 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 class LogNormalDropout(nn.Module):
-    def __init__(self, alpha):
+    def __init__(self, shape, alpha):
         super(LogNormalDropout, self).__init__()
-        self.alpha = alpha #torch.Tensor([alpha])
+        self.register_buffer('noise', torch.empty(shape))
+        self.alpha = alpha
         
     def forward(self, x):
         """
-        Sample noise   e ~ N(1, alpha)
+        Sample noise   e ~ log N(-alpha/2, alpha)
         Multiply noise h = h_ * e
         """
         if self.train() and self.alpha:
-            # lognormal(mean = alpha, var = alpha)
-            # ._log_normal(mean, std)
-            epsilon = torch.empty(x.size()).log_normal_(-self.alpha/2.0, self.alpha**0.5)
-
-            epsilon = Variable(epsilon)
-            if x.is_cuda:
-                epsilon = epsilon.cuda()
-
+            mean, std = -self.alpha/2.0, self.alpha**0.5
+            epsilon = self.noise.log_normal_(mean, std)
             return x * epsilon
         else:
             return x
