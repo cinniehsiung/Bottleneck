@@ -55,7 +55,8 @@ class Solver(object):
         self.test_loader = None
 
     def load_data(self):
-        mean_var = (125.3, 123.0, 113.9), (63.0, 62.1, 66.7)
+        # ToTensor scales pixel values from [0,255] to [0,1]
+        mean_var = (125.3/255, 123.0/255, 113.9/255), (63.0/255, 62.1/255, 66.7/255)
         transform = transforms.Compose([transforms.CenterCrop(28), transforms.ToTensor(), transforms.Normalize(*mean_var, inplace=True)])
         train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
         self.train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.train_batch_size, shuffle=True)
@@ -80,7 +81,6 @@ class Solver(object):
         self.criterion = nn.CrossEntropyLoss().to(self.device)
 
     def train(self):
-        # print("train:")
         self.model.train()
         train_loss = 0
         train_correct = 0
