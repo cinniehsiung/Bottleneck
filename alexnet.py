@@ -8,30 +8,30 @@ from layers import LogNormalDropout
 
 class AlexNet(nn.Module):
 
-    def __init__(self, num_classes=10):
+    def __init__(self, alpha, num_classes=10):
         super(AlexNet, self).__init__()
         self.features = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=5, padding=2),
-            LogNormalDropout(alpha=0.2),
+            LogNormalDropout(alpha=alpha),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
             nn.Conv2d(64, 64, kernel_size=5, padding=2),
             #BN
-            LogNormalDropout(alpha = 0.2),
+            LogNormalDropout(alpha=alpha),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
         )
         self.classifier = nn.Sequential(
             nn.Linear(7*7*64, 384),
-            LogNormalDropout(alpha=0.2),
+            LogNormalDropout(alpha=alpha),
             # BN
             nn.ReLU(inplace=True),
             nn.Linear(384, 192),
-            LogNormalDropout(alpha=0.2),
+            LogNormalDropout(alpha=alpha),
             # BN
             nn.ReLU(inplace=True),
             nn.Linear(192, 10),
-            LogNormalDropout(alpha=0.2)
+            LogNormalDropout(alpha=alpha)
             # nn.Softmax(dim=1) # using CrossEntropyLoss
         )
 

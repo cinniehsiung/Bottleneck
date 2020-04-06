@@ -26,6 +26,7 @@ def main():
     parser = argparse.ArgumentParser(description="cifar-10 with PyTorch")
     parser.add_argument('--lr', default=0.005, type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
+    parser.add_argument('--alpha', default=1.0, type=float)
     parser.add_argument('--epochs', default=360, type=int)
     parser.add_argument('--N', default=1000, type=int)
     parser.add_argument('--trainBatchSize', default=500, type=int)
@@ -42,6 +43,7 @@ class Solver(object):
         self.model = None
         self.lr = config.lr
         self.momentum = config.momentum
+        self.alpha = config.alpha
         self.epochs = config.epochs
         self.N = config.N
         self.train_batch_size = config.trainBatchSize
@@ -74,7 +76,7 @@ class Solver(object):
         else:
             self.device = torch.device('cpu')
 
-        self.model = AlexNet().to(self.device)
+        self.model = AlexNet(alpha=self.alpha).to(self.device)
 
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr, momentum=self.momentum)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=140)
