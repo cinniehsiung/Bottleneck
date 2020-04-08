@@ -7,6 +7,7 @@ import torch.backends.cudnn as cudnn
 import torchvision
 from torchvision import transforms as transforms
 import numpy as np
+import csv
 
 import argparse
 
@@ -24,34 +25,43 @@ def main():
     # batch size 500
     # dataset size N varies from 100 to 50k
     parser = argparse.ArgumentParser(description="cifar-10 with PyTorch")
+    parser.add_argument('--name', default='alexnet')
     parser.add_argument('--lr', default=0.005, type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--alpha', default=1.0, type=float)
     parser.add_argument('--epochs', default=360, type=int)
+    parser.add_argument('--patience', default=-1, type=int, help='epochs to wait for early stopping; default no early stopping')
     parser.add_argument('--N', default=1000, type=int)
     parser.add_argument('--trainBatchSize', default=500, type=int)
     parser.add_argument('--testBatchSize', default=500, type=int)
-    # parser.add_argument('--useBatchNorm', default=True, type=bool)
     parser.add_argument('--batchnorm', dest='batchnorm', action='store_true')
     parser.add_argument('--no-batchnorm', dest='batchnorm', action='store_false')
     parser.set_defaults(batchnorm=True)
     parser.add_argument('--cuda', default=torch.cuda.is_available(), type=bool)
     args = parser.parse_args()
 
-    for i in range(1, 11):
-        alpha = i/10
-        args.alpha = alpha
+    if args.alpha >= 0:
         solver = Solver(args)
         solver.run()
+    else:
+        print('Grid search')
+        for i in range(1, 11):
+            args.alpha = i/10
+            args.name = 'alpha {}'.format(alpha)
+            print(args.alpha)
+            solver = Solver(args)
+            solver.run()
 
 
 class Solver(object):
     def __init__(self, config):
         self.model = None
+        self.name = config.name
         self.lr = config.lr
         self.momentum = config.momentum
         self.alpha = config.alpha
         self.epochs = config.epochs
+        self.patience = config.patience
         self.N = config.N
         self.train_batch_size = config.trainBatchSize
         self.test_batch_size = config.testBatchSize
@@ -76,6 +86,8 @@ class Solver(object):
         assert self.N <= 50000
         if self.N < 50000:
             train_set.data = train_set.data[:self.N]
+            # downsize the test set to improve speed for small N
+            test_set.data = test_set.data[:self.N]
 
     def load_model(self):
         if self.cuda:
@@ -137,25 +149,34 @@ class Solver(object):
 
         return test_loss, test_correct / total
 
-    def save(self):
-        model_out_path = "model.pth"
+    def save(self, name=None):
+        model_out_path = (name or self.name) + ".pth"
         torch.save(self.model, model_out_path)
         print("Checkpoint saved to {}".format(model_out_path))
 
     def run(self):
         self.load_data()
         self.load_model()
-        accuracy = 0
+        results = []
+        best_acc, best_ep = -1, -1
         for epoch in tqdm(range(1, self.epochs + 1)):
             # print("\n===> epoch: %d/200" % epoch)
-            train_result = self.train()
+            train_loss, train_acc = self.train()
             self.scheduler.step(epoch)
-            # print(train_result)
-            test_result = self.test()
-            # accuracy = max(accuracy, test_result[1])
-            if epoch == self.epochs:
-                # print("===> BEST ACC. PERFORMANCE: %.3f%%" % (accuracy * 100))
-                self.save()
+            test_loss, test_acc = self.test()
+            results.append([train_loss, train_acc, test_loss, test_acc])
+
+            if self.patience >= 0: # early stopping
+                if test_acc > best_acc:
+                    best_acc, best_ep = test_acc, epoch
+                if best_ep < epoch - patience:
+                    break
+
+        with open(self.name + '.csv', 'w') as f:
+            w = csv.writer(f)
+            w.writerow(['train_loss', 'train_acc', 'test_loss', 'test_acc'])
+            w.writerows(results)
+        self.save()
 
 
 if __name__ == '__main__':
