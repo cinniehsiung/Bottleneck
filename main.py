@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 
 CLASSES = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
-
+EPS = 1e-8
 
 def main():
     # Soatto entanglement p23:
@@ -113,7 +113,7 @@ class Solver(object):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
-            loss = self.criterion(torch.log(output), target) - 0.5*self.beta*torch.log(self.model.getAlpha())
+            loss = self.criterion(torch.log(output+EPS), target) - 0.5*self.beta*torch.log(self.model.getAlpha())
             loss.backward()
             self.optimizer.step()
             train_loss += loss.item()
@@ -139,7 +139,7 @@ class Solver(object):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
                 #loss = self.criterion(output, target)
-                loss = self.criterion(torch.log(output), target) - 0.5*self.beta*torch.log(self.model.getAlpha())
+                loss = self.criterion(torch.log(output + EPS), target) - 0.5*self.beta*torch.log(self.model.getAlpha())
                 test_loss += loss.item()
                 prediction = torch.max(output, 1)
                 total += target.size(0)
