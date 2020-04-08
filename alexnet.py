@@ -16,23 +16,24 @@ class AlexNet(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
             LogNormalDropout(shape=(B, 64, 14, 14), alpha=alpha),
-            nn.Conv2d(64, 64, kernel_size=5, padding=2),
+            nn.Conv2d(64, 64, kernel_size=5, padding=2, bias=not use_bn),
             nn.BatchNorm2d(num_features=64) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
         )
         self.classifier = nn.Sequential(
             LogNormalDropout(shape=(B, 7*7*64), alpha=alpha),
-            nn.Linear(7*7*64, 384),
+            nn.Linear(7*7*64, 384, bias=not use_bn),
             nn.BatchNorm1d(num_features=384) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
             LogNormalDropout(shape=(B, 384), alpha=alpha),
-            nn.Linear(384, 192),
+            nn.Linear(384, 192, bias=not use_bn),
             nn.BatchNorm1d(num_features=192) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
             LogNormalDropout(shape=(B, 192), alpha=alpha),
             nn.Linear(192, 10),
-            # nn.Softmax(dim=1) # using CrossEntropyLoss
+            # nn.CrossEntropyLoss expects raw logits
+            # nn.Softmax(dim=1)
         )
 
     def forward(self, x):
