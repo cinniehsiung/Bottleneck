@@ -100,7 +100,7 @@ class Solver(object):
 
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr, momentum=self.momentum)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=140)
-        self.criterion = nn.CrossEntropyLoss().to(self.device)
+        self.criterion = nn.NLLLoss().to(self.device)
 
     def train(self):
         self.model.train()
@@ -113,7 +113,7 @@ class Solver(object):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
-            loss = self.criterion(output, target)
+            loss = self.criterion(torch.log(output), target) - 0.5*torch.log(self.model.getAlpha())
             loss.backward()
             self.optimizer.step()
             train_loss += loss.item()
@@ -123,7 +123,7 @@ class Solver(object):
 
             pbar.set_description('Train')
             # pbar.set_description('Train epoch {}/{}'.format(epoch, self.epochs))
-            pbar.set_postfix(loss=train_loss, acc=100. * train_correct / total, total=total)
+            pbar.set_postfix(loss=train_loss, acc=100. * train_correct / total, total=total, alpha=self.model.getAlpha().item())
 
         return train_loss, train_correct / total
 
@@ -138,14 +138,15 @@ class Solver(object):
             for batch_num, (data, target) in enumerate(pbar):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
-                loss = self.criterion(output, target)
+                #loss = self.criterion(output, target)
+                loss = self.criterion(torch.log(output), target) - 0.5*torch.log(self.model.getAlpha())
                 test_loss += loss.item()
                 prediction = torch.max(output, 1)
                 total += target.size(0)
                 test_correct += np.sum(prediction[1].cpu().numpy() == target.cpu().numpy())
 
                 pbar.set_description(' Test')
-                pbar.set_postfix(loss=test_loss, acc=100. * test_correct / total, total=total)
+                pbar.set_postfix(loss=test_loss, acc=100. * test_correct / total, total=total, alpha=self.model.getAlpha().item())
 
         return test_loss, test_correct / total
 

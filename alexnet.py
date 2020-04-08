@@ -10,6 +10,11 @@ class AlexNet(nn.Module):
 
     def __init__(self, B, num_classes=10, use_bn=True):
         super(AlexNet, self).__init__()
+
+        # for the IB Langrangian, to be able to reference alpha
+        self.dropout = LogNormalDropout(shape=(B,10))
+        
+        # define the layers
         self.features = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=5, padding=2),
             nn.ReLU(inplace=True),
@@ -27,9 +32,9 @@ class AlexNet(nn.Module):
             nn.BatchNorm1d(num_features=192) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
             nn.Linear(192, 10),
-            LogNormalDropout(shape=(B, 10)),
+            nn.Softmax(dim=1),
+            self.dropout,
             # nn.CrossEntropyLoss expects raw logits
-            # nn.Softmax(dim=1)
         )
 
     def forward(self, x):
@@ -37,3 +42,6 @@ class AlexNet(nn.Module):
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x 
+
+    def getAlpha(self):
+        return self.dropout.alpha
