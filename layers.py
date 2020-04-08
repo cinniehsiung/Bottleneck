@@ -6,7 +6,7 @@ class LogNormalDropout(nn.Module):
     def __init__(self, shape):
         super(LogNormalDropout, self).__init__()
         self.register_buffer('noise', torch.empty(shape))
-        self.alpha = nn.Parameter(torch.tensor(1))
+        self.alpha = nn.Parameter(torch.tensor(1.0))
         
     def forward(self, x):
         """
