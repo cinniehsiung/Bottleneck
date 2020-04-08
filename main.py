@@ -28,7 +28,7 @@ def main():
     parser.add_argument('--name', default='alexnet')
     parser.add_argument('--lr', default=0.005, type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
-    parser.add_argument('--alpha', default=1.0, type=float)
+    parser.add_argument('--beta', default=1.0, type=float)
     parser.add_argument('--epochs', default=360, type=int)
     parser.add_argument('--patience', default=-1, type=int, help='epochs to wait for early stopping; default no early stopping')
     parser.add_argument('--N', default=1000, type=int)
@@ -40,15 +40,15 @@ def main():
     parser.add_argument('--cuda', default=torch.cuda.is_available(), type=bool)
     args = parser.parse_args()
 
-    if args.alpha >= 0:
+    if args.beta >= 0:
         solver = Solver(args)
         solver.run()
     else:
         print('Grid search')
         for i in range(1, 11):
-            args.alpha = i/10
-            args.name = 'alpha {}'.format(alpha)
-            print(args.alpha)
+            args.beta = i/10
+            args.name = 'beta {}'.format(beta)
+            print(args.beta)
             solver = Solver(args)
             solver.run()
 
@@ -59,7 +59,7 @@ class Solver(object):
         self.name = config.name
         self.lr = config.lr
         self.momentum = config.momentum
-        self.alpha = config.alpha
+        self.beta = config.beta
         self.epochs = config.epochs
         self.patience = config.patience
         self.N = config.N
@@ -113,7 +113,7 @@ class Solver(object):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
-            loss = self.criterion(torch.log(output), target) - 0.5*torch.log(self.model.getAlpha())
+            loss = self.criterion(torch.log(output), target) - 0.5*self.beta*torch.log(self.model.getAlpha())
             loss.backward()
             self.optimizer.step()
             train_loss += loss.item()
@@ -139,7 +139,7 @@ class Solver(object):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
                 #loss = self.criterion(output, target)
-                loss = self.criterion(torch.log(output), target) - 0.5*torch.log(self.model.getAlpha())
+                loss = self.criterion(torch.log(output), target) - 0.5*self.beta*torch.log(self.model.getAlpha())
                 test_loss += loss.item()
                 prediction = torch.max(output, 1)
                 total += target.size(0)
