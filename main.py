@@ -8,8 +8,9 @@ import torchvision
 from torchvision import transforms as transforms
 import numpy as np
 import csv
-
+import pickle
 import argparse
+from itertools import product
 
 from alexnet import AlexNet
 from tqdm import tqdm
@@ -32,8 +33,7 @@ def main():
     parser.add_argument('--epochs', default=360, type=int)
     parser.add_argument('--patience', default=-1, type=int, help='epochs to wait for early stopping; default no early stopping')
     parser.add_argument('--N', default=1000, type=int)
-    parser.add_argument('--trainBatchSize', default=500, type=int)
-    parser.add_argument('--testBatchSize', default=500, type=int)
+    parser.add_argument('--batch_size', default=500, type=int)
     parser.add_argument('--batchnorm', dest='batchnorm', action='store_true')
     parser.add_argument('--no-batchnorm', dest='batchnorm', action='store_false')
     parser.set_defaults(batchnorm=True)
@@ -45,12 +45,24 @@ def main():
         solver.run()
     else:
         print('Grid search')
-        for i in range(1, 11):
-            args.beta = i/10
-            args.name = 'beta {}'.format(beta)
-            print(args.beta)
+        bs = np.arange(-3.5, 3, 0.25)
+        ns = np.arange(2, 5, 0.25)
+        grid_vals = product(bs,ns)
+        results = np.zeros_like(grid_vals)
+        for i, j in product(np.arange(len(bs)), np.arange(len(ns))):
+            b, n = bs[i], ns[j]
+            args.beta = 10**b
+            args.N = int(10**n)
+            args.name = "beta: {}, \t N: {}".format(args.beta, args.N)
+            print(args.name)
+            
+            if args.N < 500:
+                args.batch_size = 100
+
             solver = Solver(args)
-            solver.run()
+            results[i, j] = solver.run()
+
+        pickle.dump(results, open("results.p", "wb"))
 
 
 class Solver(object):
@@ -63,8 +75,7 @@ class Solver(object):
         self.epochs = config.epochs
         self.patience = config.patience
         self.N = config.N
-        self.train_batch_size = config.trainBatchSize
-        self.test_batch_size = config.testBatchSize
+        self.batch_size = config.batch_size
         self.use_bn = config.batchnorm
         self.criterion = None
         self.optimizer = None
@@ -79,9 +90,9 @@ class Solver(object):
         mean_var = (125.3/255, 123.0/255, 113.9/255), (63.0/255, 62.1/255, 66.7/255)
         transform = transforms.Compose([transforms.CenterCrop(28), transforms.ToTensor(), transforms.Normalize(*mean_var, inplace=True)])
         train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
-        self.train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.train_batch_size, shuffle=True)
+        self.train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.batch_size, shuffle=True)
         test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
-        self.test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=self.test_batch_size, shuffle=False)
+        self.test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=self.batch_size, shuffle=False)
 
         assert self.N <= 50000
         if self.N < 50000:
@@ -96,7 +107,7 @@ class Solver(object):
         else:
             self.device = torch.device('cpu')
 
-        self.model = AlexNet(B=500, use_bn=self.use_bn).to(self.device)
+        self.model = AlexNet(B=self.batch_size, use_bn=self.use_bn).to(self.device)
 
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr, momentum=self.momentum)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=140)
@@ -178,6 +189,8 @@ class Solver(object):
             w.writerow(['train_loss', 'train_acc', 'test_loss', 'test_acc'])
             w.writerows(results)
         self.save()
+
+        return best_acc
 
 
 if __name__ == '__main__':
