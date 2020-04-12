@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
+
 class LogNormalDropout(nn.Module):
     def __init__(self, shape):
         super(LogNormalDropout, self).__init__()
@@ -14,6 +15,7 @@ class LogNormalDropout(nn.Module):
         Multiply noise h = h_ * e
         """
         if self.train():
+            if self.alpha < 0 : self.alpha = 0*self.alpha
             mean, std = -self.alpha/2.0, self.alpha**0.5
             Z = self.noise.normal_(0, 1)
             epsilon  = torch.exp(mean+std*Z)
