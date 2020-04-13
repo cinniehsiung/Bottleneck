@@ -8,12 +8,13 @@ from layers import LogNormalDropout
 
 class AlexNet(nn.Module):
 
-    def __init__(self, B, num_classes=10, use_bn=True):
+    def __init__(self, device, B, num_classes=10, use_bn=True):
         super(AlexNet, self).__init__()
 
         # for the IB Langrangian, to be able to reference alpha
         #self.dropout = LogNormalDropout(shape=(B,10))
-        self.dropout = LogNormalDropout(shape=(B, 64, 14, 14), max_alpha= 0.7, kernel_size=5, padding=2)
+        self.dropout = LogNormalDropout(device=device,
+            shape=(B, 64, 14, 14), max_alpha= 0.7, kernel_size=5, padding=2)
         
         # define the layers
         self.features = nn.Sequential(

@@ -4,8 +4,9 @@ from torch.autograd import Variable
 
 
 class LogNormalDropout(nn.Module):
-    def __init__(self, shape, max_alpha = 0.7, kernel_size=5, stride=1, padding=2):
+    def __init__(self, device, shape, max_alpha = 0.7, kernel_size=5, stride=1, padding=2):
         super(LogNormalDropout, self).__init__()
+        self.device = device
         self.register_buffer('noise', torch.empty(shape))
 
         # should match previous layer
@@ -28,7 +29,7 @@ class LogNormalDropout(nn.Module):
         """
         if self.train():
             Conv2d =  nn.Conv2d(self.channels, self.channels, kernel_size=self.kernel_size, 
-                    stride=self.stride, padding = self.padding)
+                    stride=self.stride, padding = self.padding).to(self.device)
             Sigmoid = nn.Sigmoid()
 
             # calculate alpha

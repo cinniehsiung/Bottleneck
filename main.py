@@ -105,7 +105,7 @@ class Solver(object):
         else:
             self.device = torch.device('cpu')
 
-        self.model = AlexNet(B=self.batch_size, use_bn=self.use_bn).to(self.device)
+        self.model = AlexNet(device=self.device, B=self.batch_size, use_bn=self.use_bn).to(self.device)
 
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr, momentum=self.momentum)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=140)
