@@ -47,17 +47,15 @@ def main():
         print('Grid search')
         bs = np.arange(-3.5, 3, 0.25)
         ns = np.arange(2, 5, 0.25)
-        grid_vals = product(bs,ns)
-        results = np.zeros_like(grid_vals)
-        for i, j in product(np.arange(len(bs)), np.arange(len(ns))):
+        results = np.empty((len(bs), len(ns)))
+        for i, j in product(range(len(bs)), range(len(ns))):
             b, n = bs[i], ns[j]
             args.beta = 10**b
             args.N = int(10**n)
             args.name = "beta: {}, \t N: {}".format(args.beta, args.N)
             print(args.name)
             
-            if args.N < 500:
-                args.batch_size = 100
+            args.batch_size = min(args.N, 500)
 
             solver = Solver(args)
             results[i, j] = solver.run()
@@ -124,9 +122,11 @@ class Solver(object):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
-            loss = self.criterion(torch.log(output+EPS), target) - 0.5*self.beta*torch.log(EPS + self.model.getAlpha())
+            loss = self.criterion(torch.log(output+EPS), target) - 0.5*self.beta*torch.log(EPS + self.model.dropout.alpha)
             loss.backward()
             self.optimizer.step()
+            with torch.no_grad():
+                self.model.dropout.alpha.clamp_(0, 1e5)
             train_loss += loss.item()
             prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
             total += target.size(0)
@@ -134,7 +134,7 @@ class Solver(object):
 
             pbar.set_description('Train')
             # pbar.set_description('Train epoch {}/{}'.format(epoch, self.epochs))
-            pbar.set_postfix(loss=train_loss, acc=100. * train_correct / total, total=total, alpha=self.model.getAlpha().item())
+            pbar.set_postfix(loss=train_loss, acc=100. * train_correct / total, total=total, alpha=self.model.dropout.alpha.item())
 
         return train_loss, train_correct / total
 
@@ -150,14 +150,14 @@ class Solver(object):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
                 #loss = self.criterion(output, target)
-                loss = self.criterion(torch.log(output + EPS), target) - 0.5*self.beta*torch.log(EPS + self.model.getAlpha())
+                loss = self.criterion(torch.log(output + EPS), target) - 0.5*self.beta*torch.log(EPS + self.model.dropout.alpha)
                 test_loss += loss.item()
                 prediction = torch.max(output, 1)
                 total += target.size(0)
                 test_correct += np.sum(prediction[1].cpu().numpy() == target.cpu().numpy())
 
                 pbar.set_description(' Test')
-                pbar.set_postfix(loss=test_loss, acc=100. * test_correct / total, total=total, alpha=self.model.getAlpha().item())
+                pbar.set_postfix(loss=test_loss, acc=100. * test_correct / total, total=total, alpha=self.model.dropout.alpha.item())
 
         return test_loss, test_correct / total
 
