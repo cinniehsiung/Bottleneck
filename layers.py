@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 
 
 class LogNormalDropout(nn.Module):
@@ -13,14 +12,15 @@ class LogNormalDropout(nn.Module):
         self.stride = stride
         self.padding = padding
         self.kernel_size = kernel_size
+        self.channels = shape[1]
 
         # copying constants from https://github.com/ucla-vision/information-dropout/blob/master/cifar.py
         self.max_alpha = max_alpha
         self.eps = 0.001
 
-
-        #self.alpha = nn.Parameter(torch.tensor(0.5))
-        self.channels = shape[1]
+        self.Conv2d =  nn.Conv2d(self.channels, self.channels, kernel_size=self.kernel_size, 
+                    stride=self.stride, padding = self.padding).to(self.device)
+        self.Sigmoid = nn.Sigmoid()
         
     def forward(self, x):
         """
@@ -28,12 +28,8 @@ class LogNormalDropout(nn.Module):
         Multiply noise h = h_ * e
         """
         if self.train():
-            Conv2d =  nn.Conv2d(self.channels, self.channels, kernel_size=self.kernel_size, 
-                    stride=self.stride, padding = self.padding).to(self.device)
-            Sigmoid = nn.Sigmoid()
-
             # calculate alpha
-            self.alpha = self.max_alpha*Sigmoid(Conv2d.forward(x)) + self.eps
+            self.alpha = self.max_alpha*self.Sigmoid(self.Conv2d.forward(x)) + self.eps
 
             # calculate information in the weights
             self.Iw = - torch.log(self.alpha/(self.max_alpha+self.eps))
