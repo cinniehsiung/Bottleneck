@@ -47,17 +47,15 @@ def main():
         print('Grid search')
         bs = np.arange(-3.5, 3, 0.25)
         ns = np.arange(2, 5, 0.25)
-        grid_vals = product(bs,ns)
-        results = np.zeros_like(grid_vals)
-        for i, j in product(np.arange(len(bs)), np.arange(len(ns))):
+        results = np.empty((len(bs), len(ns)))
+        for i, j in product(range(len(bs)), range(len(ns))):
             b, n = bs[i], ns[j]
             args.beta = 10**b
             args.N = int(10**n)
             args.name = "beta: {}, \t N: {}".format(args.beta, args.N)
             print(args.name)
             
-            if args.N < 500:
-                args.batch_size = 100
+            args.batch_size = min(args.N, 500)
 
             solver = Solver(args)
             results[i, j] = solver.run()
@@ -131,6 +129,8 @@ class Solver(object):
             loss = self.criterion(torch.log(output+EPS), target) - 0.5*self.beta*self.getIw()
             loss.backward()
             self.optimizer.step()
+            with torch.no_grad():
+                self.model.dropout.alpha.clamp_(0, 1e5)
             train_loss += loss.item()
             prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
             total += target.size(0)
