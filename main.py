@@ -113,7 +113,7 @@ class Solver(object):
 
 
     def getIw(self):
-        return torch.sum(self.model.getIw())/self.batch_size
+        return torch.sum(self.model.getIw())/self.N
 
     def train(self):
         self.model.train()
@@ -129,8 +129,6 @@ class Solver(object):
             loss = self.criterion(torch.log(output+EPS), target) + 0.5*self.beta*self.getIw()
             loss.backward()
             self.optimizer.step()
-            with torch.no_grad():
-                self.model.dropout.alpha.clamp_(0, 1e5)
             train_loss += loss.item()
             prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
             total += target.size(0)
