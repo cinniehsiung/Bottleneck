@@ -126,7 +126,7 @@ class Solver(object):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
-            loss = self.criterion(torch.log(output+EPS), target) - 0.5*self.beta*self.getIw()
+            loss = self.criterion(torch.log(output+EPS), target) + 0.5*self.beta*self.getIw()
             loss.backward()
             self.optimizer.step()
             with torch.no_grad():
