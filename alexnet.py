@@ -12,13 +12,15 @@ class AlexNet(nn.Module):
         super(AlexNet, self).__init__()
 
         # for the IB Langrangian, to be able to reference alpha
-        self.dropout = LogNormalDropout(shape=(B,10))
+        #self.dropout = LogNormalDropout(shape=(B,10))
+        self.dropout = LogNormalDropout(shape=(B, 64, 14, 14), max_alpha= 0.7, kernel_size=5, padding=2)
         
         # define the layers
         self.features = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=5, padding=2),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
+            self.dropout,
             nn.Conv2d(64, 64, kernel_size=5, padding=2, bias=not use_bn),
             nn.BatchNorm2d(num_features=64) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
@@ -33,7 +35,7 @@ class AlexNet(nn.Module):
             nn.ReLU(inplace=True),
             nn.Linear(192, 10),
             nn.Softmax(dim=1),
-            self.dropout,
+            #self.dropout,
             # nn.CrossEntropyLoss expects raw logits
         )
 
@@ -45,3 +47,6 @@ class AlexNet(nn.Module):
 
     def getAlpha(self):
         return self.dropout.alpha
+
+    def getIw(self):
+        return self.dropout.Iw
