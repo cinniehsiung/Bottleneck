@@ -12,20 +12,20 @@ class AlexNet(nn.Module):
         super(AlexNet, self).__init__()
 
         # for the IB Langrangian, to be able to reference alpha
-        self.dropout_layers_features = [3, 8]
+        self.dropout_layers_features = [1, 5]
         self.dropout_layers_classifier = []
         
         # define the layers
         self.features = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=5, padding=2),
+            LogNormalDropout(device=device, shape=(B, 64, 28, 28), max_alpha= 0.7, kernel_size=5, padding=2),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
-            LogNormalDropout(device=device, shape=(B, 64, 14, 14), max_alpha= 0.7, kernel_size=5, padding=2),
             nn.Conv2d(64, 64, kernel_size=5, padding=2, bias=not use_bn),
+            LogNormalDropout(device=device, shape=(B, 64, 14, 14), max_alpha= 0.7, kernel_size=5, padding=2),
             nn.BatchNorm2d(num_features=64) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
-            LogNormalDropout(device=device, shape=(B, 64, 7, 7), max_alpha= 0.7, kernel_size=5, padding=2)
         )
         self.classifier = nn.Sequential(
             nn.Linear(7*7*64, 384, bias=not use_bn),
@@ -47,6 +47,5 @@ class AlexNet(nn.Module):
         return x 
 
     def getIw(self):
-        Iw = torch.FloatTensor([self.features[idx].Iw for idx in self.dropout_layers_features])
-
+        Iw = sum(self.features[idx].Iw for idx in self.dropout_layers_features)
         return Iw

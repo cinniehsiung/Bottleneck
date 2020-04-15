@@ -47,7 +47,8 @@ def main():
         print('Grid search')
         bs = np.arange(-3.5, 3, 0.25)
         ns = np.arange(2, 5, 0.25)
-        results = np.empty((len(bs), len(ns)))
+        results = -1*np.ones((len(bs), len(ns)))
+        best_lr = np.zeros((len(bs), len(ns)))
         for i, j in product(range(len(bs)), range(len(ns))):
             b, n = bs[i], ns[j]
             args.beta = 10**b
@@ -56,9 +57,11 @@ def main():
             print(args.name)
             
             args.batch_size = min(args.N, 500)
-
-            solver = Solver(args)
-            results[i, j] = solver.run()
+            for lr in [0.005, 0.02]:
+                args.lr = lr
+                acc = Solver(args).run()
+                if acc >= results[i, j]:
+                    results[i, j], best_lr[i, j] = acc, lr
 
         pickle.dump(results, open("results.p", "wb"))
 
@@ -113,7 +116,7 @@ class Solver(object):
 
 
     def getIw(self):
-        return torch.sum(self.model.getIw())/self.N
+        return self.model.getIw()/self.N
 
     def train(self):
         self.model.train()
@@ -127,6 +130,7 @@ class Solver(object):
             self.optimizer.zero_grad()
             output = self.model(data)
             loss = self.criterion(torch.log(output+EPS), target) + 0.5*self.beta*self.getIw()
+            # loss = 0.5*self.beta*self.getIw()
             loss.backward()
             self.optimizer.step()
             train_loss += loss.item()
@@ -151,7 +155,7 @@ class Solver(object):
             for batch_num, (data, target) in enumerate(pbar):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
-                #loss = self.criterion(output, target)
+                # loss = 0.5*self.beta*self.getIw()
                 loss = self.criterion(torch.log(output + EPS), target) + 0.5*self.beta*self.getIw()
                 test_loss += loss.item()
                 prediction = torch.max(output, 1)
