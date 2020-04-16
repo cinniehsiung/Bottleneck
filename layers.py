@@ -3,23 +3,18 @@ import torch.nn as nn
 
 
 class LogNormalDropout(nn.Module):
-    def __init__(self, device, shape, max_alpha = 0.7, kernel_size=5, stride=1, padding=2):
+    def __init__(self, device, shape, max_alpha, module, **params):
         super(LogNormalDropout, self).__init__()
         self.device = device
         self.register_buffer('noise', torch.empty(shape))
-
-        # should match previous layer
-        self.stride = stride
-        self.padding = padding
-        self.kernel_size = kernel_size
-        self.channels = shape[1]
 
         # copying constants from https://github.com/ucla-vision/information-dropout/blob/master/cifar.py
         self.max_alpha = max_alpha
         self.eps = 0.001
 
-        self.Conv2d =  nn.Conv2d(self.channels, self.channels, kernel_size=self.kernel_size, 
-                    stride=self.stride, padding = self.padding).to(self.device)
+        self.layer = module(**params)
+        self.layer_noise = module(**params)
+
         self.Sigmoid = nn.Sigmoid()
         
     def forward(self, x):
@@ -29,7 +24,7 @@ class LogNormalDropout(nn.Module):
         """
         if self.train():
             # calculate alpha
-            self.alpha = self.max_alpha*self.Sigmoid(self.Conv2d.forward(x)) + self.eps
+            self.alpha = self.max_alpha*self.Sigmoid(self.layer_noise.forward(x)) + self.eps
 
             # calculate information in the weights
             self.Iw = - torch.sum(torch.log(self.alpha/(self.max_alpha+self.eps)))/x.shape[0]
@@ -38,6 +33,6 @@ class LogNormalDropout(nn.Module):
             mean, std = -self.alpha/2.0, self.alpha**0.5
             Z = self.noise.normal_(0, 1)
             epsilon  = torch.exp(mean+std*Z)
-            return x * epsilon
+            return self.layer.forward(x) * epsilon
         else:
-            return x
+            return self.layer.forward(x)

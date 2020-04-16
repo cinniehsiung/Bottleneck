@@ -12,17 +12,19 @@ class AlexNet(nn.Module):
         super(AlexNet, self).__init__()
 
         # for the IB Langrangian, to be able to reference alpha
-        self.dropout_layers_features = [1, 5]
-        self.dropout_layers_classifier = []
+        self.dropout_layers_features = []#[0, 3]
+        self.dropout_layers_classifier = [6]
         
         # define the layers
         self.features = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=5, padding=2),
-            LogNormalDropout(device=device, shape=(B, 64, 28, 28), max_alpha= 0.7, kernel_size=5, padding=2),
+            #LogNormalDropout(device=device, shape=(B, 64, 28, 28), max_alpha= 0.7, 
+            #    module=nn.Conv2d, in_channels=3, out_channels=64, kernel_size=5, padding=2, bias=not use_bn),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
             nn.Conv2d(64, 64, kernel_size=5, padding=2, bias=not use_bn),
-            LogNormalDropout(device=device, shape=(B, 64, 14, 14), max_alpha= 0.7, kernel_size=5, padding=2),
+            #LogNormalDropout(device=device, shape=(B, 64, 14, 14), max_alpha= 0.7, 
+            #    module=nn.Conv2d, in_channels=64, out_channels=64, kernel_size=5, padding=2, bias=not use_bn),
             nn.BatchNorm2d(num_features=64) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
@@ -34,7 +36,9 @@ class AlexNet(nn.Module):
             nn.Linear(384, 192, bias=not use_bn),
             nn.BatchNorm1d(num_features=192) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
-            nn.Linear(192, 10),
+            #nn.Linear(192, 10),
+            LogNormalDropout(device=device, shape=(B, 10), max_alpha= 0.7, 
+                module=nn.Linear, in_features=192, out_features=10),
             nn.Softmax(dim=1),
             #self.dropout,
             # nn.CrossEntropyLoss expects raw logits
@@ -47,5 +51,6 @@ class AlexNet(nn.Module):
         return x 
 
     def getIw(self):
-        Iw = sum(self.features[idx].Iw for idx in self.dropout_layers_features)
-        return Iw
+        Iw_features = sum(self.features[idx].Iw for idx in self.dropout_layers_features)
+        Iw_classifier = sum(self.classifier[idx].Iw for idx in self.dropout_layers_classifier)
+        return Iw_features+Iw_classifier
