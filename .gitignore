@@ -1,3 +1,7 @@
+# Results
+*.csv
+*.pth
+
 #  MACOS
 .DS_Store
 
