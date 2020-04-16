@@ -44,10 +44,11 @@ def main():
         solver = Solver(args)
         solver.run()
     else:
-        print('Grid search')
-        bs = np.arange(-3.5, 3, 0.25)
-        ns = np.arange(2, 5, 0.25)
-        results = -1*np.ones((len(bs), len(ns)))
+        print('Grid search2')
+        bs = np.arange(-2, 3.1, 1) # modified from -3.5
+        ns = np.arange(2, 4.51, 1)
+        train_acc = -1*np.ones((len(bs), len(ns)))
+        test_acc = -1*np.ones((len(bs), len(ns)))
         best_lr = np.zeros((len(bs), len(ns)))
         for i, j in product(range(len(bs)), range(len(ns))):
             b, n = bs[i], ns[j]
@@ -59,11 +60,11 @@ def main():
             args.batch_size = min(args.N, 500)
             for lr in [0.005, 0.02]:
                 args.lr = lr
-                acc = Solver(args).run()
-                if acc >= results[i, j]:
-                    results[i, j], best_lr[i, j] = acc, lr
+                curr_train, curr_test = Solver(args).run()
+                if curr_test >= test_acc[i, j]:
+                    train_acc[i,j], test_acc[i, j], best_lr[i, j] = curr_train, curr_test, lr
 
-        pickle.dump(results, open("results.p", "wb"))
+            pickle.dump([train_acc, test_acc, best_lr], open("results2.p", "wb"))
 
 
 class Solver(object):
@@ -91,9 +92,9 @@ class Solver(object):
         mean_var = (125.3/255, 123.0/255, 113.9/255), (63.0/255, 62.1/255, 66.7/255)
         transform = transforms.Compose([transforms.CenterCrop(28), transforms.ToTensor(), transforms.Normalize(*mean_var, inplace=True)])
         train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
-        self.train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.batch_size, shuffle=True)
+        self.train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.batch_size, shuffle=True, drop_last=True)
         test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
-        self.test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=self.batch_size, shuffle=False)
+        self.test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=self.batch_size, shuffle=False, drop_last=True)
 
         assert self.N <= 50000
         if self.N < 50000:
@@ -176,7 +177,7 @@ class Solver(object):
         self.load_data()
         self.load_model()
         results = []
-        best_acc, best_ep = -1, -1
+        best_train_acc, best_test_acc, best_ep = -1, -1, -1
         for epoch in tqdm(range(1, self.epochs + 1)):
             # print("\n===> epoch: %d/200" % epoch)
             train_loss, train_acc = self.train()
@@ -184,10 +185,10 @@ class Solver(object):
             test_loss, test_acc = self.test()
             results.append([train_loss, train_acc, test_loss, test_acc])
 
+            if test_acc > best_test_acc:
+                best_test_acc, best_ep = test_acc, epoch
             if self.patience >= 0: # early stopping
-                if test_acc > best_acc:
-                    best_acc, best_ep = test_acc, epoch
-                if best_ep < epoch - patience:
+                if best_ep < epoch - self.patience:
                     break
 
         with open(self.name + '.csv', 'w') as f:
@@ -196,7 +197,7 @@ class Solver(object):
             w.writerows(results)
         self.save()
 
-        return best_acc
+        return train_acc, test_acc
 
 
 if __name__ == '__main__':
