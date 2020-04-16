@@ -15,7 +15,7 @@ from itertools import product
 from alexnet import AlexNet
 from tqdm import tqdm
 
-
+DOWNLOAD = False
 CLASSES = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 EPS = 1e-8
 
@@ -34,6 +34,7 @@ def main():
     parser.add_argument('--patience', default=-1, type=int, help='epochs to wait for early stopping; default no early stopping')
     parser.add_argument('--N', default=1000, type=int)
     parser.add_argument('--batch_size', default=500, type=int)
+    parser.add_argument('--random_labels', default=False, type=bool)
     parser.add_argument('--batchnorm', dest='batchnorm', action='store_true')
     parser.add_argument('--no-batchnorm', dest='batchnorm', action='store_false')
     parser.set_defaults(batchnorm=True)
@@ -44,8 +45,8 @@ def main():
         solver = Solver(args)
         solver.run()
     else:
-        print('Grid search2')
-        bs = np.arange(-2, 3.1, 1) # modified from -3.5
+        print('Grid search')
+        bs = np.arange(-3.5, 3.1, 0.5) # modified from -3.5
         ns = np.arange(2, 4.51, 1)
         train_acc = -1*np.ones((len(bs), len(ns)))
         test_acc = -1*np.ones((len(bs), len(ns)))
@@ -64,7 +65,14 @@ def main():
                 if curr_test >= test_acc[i, j]:
                     train_acc[i,j], test_acc[i, j], best_lr[i, j] = curr_train, curr_test, lr
 
-            pickle.dump([train_acc, test_acc, best_lr], open("results2.p", "wb"))
+            data = {
+                'train_acc': train_acc,
+                'test_acc': test_acc,
+                'best_lr': best_lr,
+                'bs': bs,
+                'ns': ns
+            }
+            pickle.dump(data, open("results2.p", "wb"))
 
 
 class Solver(object):
@@ -78,6 +86,7 @@ class Solver(object):
         self.patience = config.patience
         self.N = config.N
         self.batch_size = config.batch_size
+        self.random_labels = config.random_labels
         self.use_bn = config.batchnorm
         self.criterion = None
         self.optimizer = None
@@ -91,16 +100,21 @@ class Solver(object):
         # ToTensor scales pixel values from [0,255] to [0,1]
         mean_var = (125.3/255, 123.0/255, 113.9/255), (63.0/255, 62.1/255, 66.7/255)
         transform = transforms.Compose([transforms.CenterCrop(28), transforms.ToTensor(), transforms.Normalize(*mean_var, inplace=True)])
-        train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
-        self.train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.batch_size, shuffle=True, drop_last=True)
-        test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
-        self.test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=self.batch_size, shuffle=False, drop_last=True)
+        train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=DOWNLOAD, transform=transform)
+        test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=DOWNLOAD, transform=transform)
+        
+        if self.random_labels:
+            np.random.shuffle(train_set.targets)
+            np.random.shuffle(test_set.targets)
 
         assert self.N <= 50000
         if self.N < 50000:
             train_set.data = train_set.data[:self.N]
             # downsize the test set to improve speed for small N
             test_set.data = test_set.data[:self.N]
+
+        self.train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.batch_size, shuffle=True, drop_last=True)
+        self.test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=self.batch_size, shuffle=False, drop_last=True)
 
     def load_model(self):
         if self.cuda:
@@ -117,20 +131,21 @@ class Solver(object):
 
 
     def getIw(self):
-        return self.model.getIw()/self.N
+        return self.model.getIw()
 
     def train(self):
         self.model.train()
         train_loss = 0
         train_correct = 0
         total = 0
-
+        
         pbar = tqdm(self.train_loader)
         for batch_num, (data, target) in enumerate(pbar):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
-            loss = self.criterion(torch.log(output+EPS), target) + 0.5*self.beta*self.getIw()
+            Iw = self.getIw()
+            loss = self.criterion(torch.log(output+EPS), target) + 0.5*self.beta*Iw
             # loss = 0.5*self.beta*self.getIw()
             loss.backward()
             self.optimizer.step()
@@ -141,9 +156,9 @@ class Solver(object):
 
             pbar.set_description('Train')
             # pbar.set_description('Train epoch {}/{}'.format(epoch, self.epochs))
-            pbar.set_postfix(loss=train_loss, acc=100. * train_correct / total, total=total, Iw = self.getIw().item())
+            pbar.set_postfix(loss=train_loss, acc=100. * train_correct / total, total=total, Iw = Iw.item())
 
-        return train_loss, train_correct / total
+        return train_loss, train_correct / total, Iw.item()
 
     def test(self):
         self.model.eval()
@@ -157,21 +172,22 @@ class Solver(object):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
                 # loss = 0.5*self.beta*self.getIw()
-                loss = self.criterion(torch.log(output + EPS), target) + 0.5*self.beta*self.getIw()
+                Iw = self.getIw()
+                loss = self.criterion(torch.log(output + EPS), target) + 0.5*self.beta*Iw
                 test_loss += loss.item()
                 prediction = torch.max(output, 1)
                 total += target.size(0)
                 test_correct += np.sum(prediction[1].cpu().numpy() == target.cpu().numpy())
 
                 pbar.set_description(' Test')
-                pbar.set_postfix(loss=test_loss, acc=100. * test_correct / total, total=total, Iw = self.getIw().item())
+                pbar.set_postfix(loss=test_loss, acc=100. * test_correct / total, total=total, Iw = Iw.item())
 
-        return test_loss, test_correct / total
+        return test_loss, test_correct / total, Iw
 
     def save(self, name=None):
         model_out_path = (name or self.name) + ".pth"
-        torch.save(self.model, model_out_path)
-        print("Checkpoint saved to {}".format(model_out_path))
+        # torch.save(self.model, model_out_path)
+        # print("Checkpoint saved to {}".format(model_out_path))
 
     def run(self):
         self.load_data()
@@ -180,10 +196,10 @@ class Solver(object):
         best_train_acc, best_test_acc, best_ep = -1, -1, -1
         for epoch in tqdm(range(1, self.epochs + 1)):
             # print("\n===> epoch: %d/200" % epoch)
-            train_loss, train_acc = self.train()
+            train_loss, train_acc, train_Iw = self.train()
             self.scheduler.step(epoch)
-            test_loss, test_acc = self.test()
-            results.append([train_loss, train_acc, test_loss, test_acc])
+            test_loss, test_acc, test_Iw = self.test()
+            results.append([train_loss, train_acc, train_Iw, test_loss, test_acc, test_Iw])
 
             if test_acc > best_test_acc:
                 best_test_acc, best_ep = test_acc, epoch
@@ -193,7 +209,7 @@ class Solver(object):
 
         with open(self.name + '.csv', 'w') as f:
             w = csv.writer(f)
-            w.writerow(['train_loss', 'train_acc', 'test_loss', 'test_acc'])
+            w.writerow(['train_loss', 'train_acc', 'train_Iw', 'test_loss', 'test_acc', 'test_Iw'])
             w.writerows(results)
         self.save()
 
