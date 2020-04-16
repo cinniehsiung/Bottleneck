@@ -6,11 +6,11 @@ from itertools import product
 
 def plot_one(ax, data, title, xticklabels, yticklabels, cmap='Greens', annot=True, **kwargs):
     num_rows, num_cols = data.shape
-    shifted_y_ticks = np.array([i - j for i,j in product(yticklabels,xticklabels)])
-    shifted_y_ticks = np.unique(np.sort(shifted_y_ticks))
+    shifted_y_ticks = np.array([j - i for i,j in product(yticklabels,xticklabels)])
+    shifted_y_ticks = np.unique(np.sort(shifted_y_ticks))[::-1]
     shifted_data = np.zeros((len(shifted_y_ticks), len(xticklabels)))
     for b, n in product(np.arange(num_rows), np.arange(num_cols)):
-        bn = np.argwhere(shifted_y_ticks == yticklabels[b] - xticklabels[n])
+        bn = np.argwhere(shifted_y_ticks == -(yticklabels[b] - xticklabels[n]))
         #print("b {} n {} b-n {}".format(b, n, bn[0]))
         shifted_data[bn, n] = data[b,n]
 
@@ -62,7 +62,7 @@ plot_result(1, 'results_last_layer.p',
 
 # x axis labels
 plt.setp(ax[-1, :], xlabel='$\log_{10}(N)$')
-plt.setp(ax[:, 0], ylabel='$\log_{10}(\\beta/N)$')
+plt.setp(ax[:, 0], ylabel='$\log_{10}(N/\\beta)$')
 plt.tight_layout()
 plt.savefig('train_acc.png')
 plt.show()
