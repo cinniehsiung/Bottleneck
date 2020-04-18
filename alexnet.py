@@ -4,7 +4,7 @@
 
 import torch
 import torch.nn as nn
-from layers import LogNormalDropout 
+from layers import LogNormalDropout, LogNormalDropoutSingle
 
 class AlexNet(nn.Module):
 
@@ -37,7 +37,7 @@ class AlexNet(nn.Module):
             nn.BatchNorm1d(num_features=192) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
             #nn.Linear(192, 10),
-            LogNormalDropout(device=device, shape=(B, 10), max_alpha=max_alpha, 
+            LogNormalDropoutSingle(device=device, shape=(B, 10), max_alpha=max_alpha, 
                 module=nn.Linear, in_features=192, out_features=10),
             nn.Softmax(dim=1),
             #self.dropout,
