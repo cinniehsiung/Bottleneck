@@ -29,6 +29,7 @@ def main():
     parser.add_argument('--name', default='alexnet')
     parser.add_argument('--lr', default=0.005, type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
+    parser.add_argument('--max_alpha', default=0.7, type=float)
     parser.add_argument('--beta', default=1.0, type=float)
     parser.add_argument('--epochs', default=360, type=int)
     parser.add_argument('--patience', default=-1, type=int, help='epochs to wait for early stopping; default no early stopping')
@@ -55,8 +56,7 @@ def main():
             b, n = bs[i], ns[j]
             args.beta = 10**b
             args.N = int(10**n)
-            args.name = "beta: {}, \t N: {}".format(args.beta, args.N)
-            print(args.name)
+            print("beta: {}, \t N: {}".format(args.beta, args.N))
             
             args.batch_size = min(args.N, 500)
             for lr in [0.005, 0.02]:
@@ -72,7 +72,7 @@ def main():
                 'bs': bs,
                 'ns': ns
             }
-            pickle.dump(data, open("results2.p", "wb"))
+            pickle.dump(data, open(args.name+".p", "wb"))
 
 
 class Solver(object):
@@ -82,6 +82,7 @@ class Solver(object):
         self.lr = config.lr
         self.momentum = config.momentum
         self.beta = config.beta
+        self.max_alpha = config.max_alpha
         self.epochs = config.epochs
         self.patience = config.patience
         self.N = config.N
@@ -123,7 +124,8 @@ class Solver(object):
         else:
             self.device = torch.device('cpu')
 
-        self.model = AlexNet(device=self.device, B=self.batch_size, use_bn=self.use_bn).to(self.device)
+        self.model = AlexNet(device=self.device, B=self.batch_size,
+            max_alpha=self.max_alpha, use_bn=self.use_bn).to(self.device)
 
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr, momentum=self.momentum)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=140)
@@ -199,7 +201,7 @@ class Solver(object):
             train_loss, train_acc, train_Iw = self.train()
             self.scheduler.step(epoch)
             test_loss, test_acc, test_Iw = self.test()
-            results.append([train_loss, train_acc, train_Iw, test_loss, test_acc, test_Iw])
+            results.append([self.N, self.beta, train_loss, train_acc, train_Iw, test_loss, test_acc, test_Iw])
 
             if test_acc > best_test_acc:
                 best_test_acc, best_ep = test_acc, epoch
@@ -209,7 +211,7 @@ class Solver(object):
 
         with open(self.name + '.csv', 'w') as f:
             w = csv.writer(f)
-            w.writerow(['train_loss', 'train_acc', 'train_Iw', 'test_loss', 'test_acc', 'test_Iw'])
+            w.writerow(['N', 'beta', 'train_loss', 'train_acc', 'train_Iw', 'test_loss', 'test_acc', 'test_Iw'])
             w.writerows(results)
         self.save()
 

@@ -8,7 +8,7 @@ from layers import LogNormalDropout
 
 class AlexNet(nn.Module):
 
-    def __init__(self, device, B, num_classes=10, use_bn=True):
+    def __init__(self, device, B, max_alpha, num_classes=10, use_bn=True):
         super(AlexNet, self).__init__()
 
         # for the IB Langrangian, to be able to reference alpha
@@ -37,7 +37,7 @@ class AlexNet(nn.Module):
             nn.BatchNorm1d(num_features=192) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
             #nn.Linear(192, 10),
-            LogNormalDropout(device=device, shape=(B, 10), max_alpha= 0.7, 
+            LogNormalDropout(device=device, shape=(B, 10), max_alpha=max_alpha, 
                 module=nn.Linear, in_features=192, out_features=10),
             nn.Softmax(dim=1),
             #self.dropout,
