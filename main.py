@@ -173,9 +173,9 @@ class Solver(object):
             for batch_num, (data, target) in enumerate(pbar):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
-                # loss = 0.5*self.beta*self.getIw()
                 Iw = self.getIw()
                 loss = self.criterion(torch.log(output + EPS), target) + 0.5*self.beta*Iw
+                #loss = 0.5*self.beta*self.getIw()
                 test_loss += loss.item()
                 prediction = torch.max(output, 1)
                 total += target.size(0)
