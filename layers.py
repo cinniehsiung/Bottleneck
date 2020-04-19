@@ -27,8 +27,8 @@ class LogNormalDropout(nn.Module):
             self.alpha = self.max_alpha*self.Sigmoid(self.layer_noise.forward(x)) + self.eps
 
             # calculate information in the weights
-            # self.Iw = - torch.sum(torch.log(self.alpha/(self.max_alpha+self.eps)))/x.shape[0]
-            self.Iw = - torch.sum(torch.log(self.alpha))/x.shape[0]
+            self.Iw = - torch.sum(torch.log(self.alpha/(self.max_alpha+self.eps)))/x.shape[0]
+            #self.Iw = - torch.sum(torch.log(self.alpha))/x.shape[0]
 
             # perform dropout using reparametrization trick
             mean, std = -self.alpha/2.0, self.alpha**0.5
@@ -64,8 +64,8 @@ class LogNormalDropoutSingle(nn.Module):
             self.alpha = self.max_alpha*self.Sigmoid(self.weight) + self.eps
 
             # calculate information in the weights
-            # self.Iw = - torch.sum(torch.log(self.alpha/(self.max_alpha+self.eps)))/x.shape[0]
-            self.Iw = - torch.sum(torch.log(self.alpha))/x.shape[0]
+            self.Iw = - torch.sum(torch.log(self.alpha/(self.max_alpha+self.eps)))/x.shape[0]
+            #self.Iw = - torch.sum(torch.log(self.alpha))/x.shape[0]
 
             # perform dropout using reparametrization trick
             mean, std = -self.alpha/2.0, self.alpha**0.5
