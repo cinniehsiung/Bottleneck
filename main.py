@@ -47,8 +47,9 @@ def main():
         solver.run()
     else:
         print('Grid search')
-        bs = np.arange(-3.5, 3.1, 0.5) # modified from -3.5
+        bs = np.arange(-3.5, 3.1, 1) # modified from -3.5
         ns = np.arange(2, 4.51, 1)
+        bns = []
         train_acc = -1*np.ones((len(bs), len(ns)))
         test_acc = -1*np.ones((len(bs), len(ns)))
         best_lr = np.zeros((len(bs), len(ns)))
@@ -56,6 +57,7 @@ def main():
             b, n = bs[i], ns[j]
             args.beta = 10**b
             args.N = int(10**n)
+            bns.append(bs[i] - ns[i])
             print("beta: {}, \t N: {}".format(args.beta, args.N))
             
             args.batch_size = min(args.N, 500)
@@ -70,7 +72,8 @@ def main():
                 'test_acc': test_acc,
                 'best_lr': best_lr,
                 'bs': bs,
-                'ns': ns
+                'ns': ns,
+                'bns' : bns
             }
             pickle.dump(data, open(args.name+".p", "wb"))
 
