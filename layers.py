@@ -63,8 +63,8 @@ class LogNormalDropoutSingle(nn.Module):
             # calculate alpha
             self.alpha = self.max_alpha*self.Sigmoid(self.weight) + self.eps
 
-            # calculate information in the weights
-            self.Iw = - torch.sum(torch.log(self.alpha/(self.max_alpha+self.eps)))/x.shape[0]
+            # calculate information in the weights normalize by batchsize
+            self.Iw = - torch.sum(torch.log(self.alpha/(self.max_alpha+self.eps)))
             #self.Iw = - torch.sum(torch.log(self.alpha))/x.shape[0]
 
             # perform dropout using reparametrization trick

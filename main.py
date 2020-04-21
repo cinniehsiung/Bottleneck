@@ -32,15 +32,13 @@ def main():
     parser.add_argument('--max_alpha', default=0.7, type=float)
     parser.add_argument('--beta', default=1.0, type=float)
     parser.add_argument('--epochs', default=360, type=int)
-    parser.add_argument('--patience', default=-1, type=int, help='epochs to wait for early stopping; default no early stopping')
+    parser.add_argument('--patience', default=20, type=int, help='epochs to wait for early stopping; default no early stopping')
     parser.add_argument('--N', default=1000, type=int)
     parser.add_argument('--batch_size', default=500, type=int)
-    parser.add_argument('--random_labels', default=False, type=bool)
-    parser.add_argument('--batchnorm', dest='batchnorm', action='store_true')
-    parser.add_argument('--no-batchnorm', dest='batchnorm', action='store_false')
-    parser.set_defaults(batchnorm=True)
+    parser.add_argument('--random_labels', type=bool)
     parser.add_argument('--cuda', default=torch.cuda.is_available(), type=bool)
     args = parser.parse_args()
+    args.batchnorm = True
 
     if args.beta >= 0:
         solver = Solver(args)
@@ -136,61 +134,52 @@ class Solver(object):
 
 
     def getIw(self):
-        return self.model.getIw()
+        return self.model.getIw()/self.batch_size
 
-    def train(self):
-        self.model.train()
-        train_loss = 0
-        train_correct = 0
+    def do_batch(self, train, epoch):
+        loader = self.train_loader if train else self.test_loader
+        total_ce, total_Iw, total_loss = 0, 0, 0
+        total_correct = 0
         total = 0
-        
-        pbar = tqdm(self.train_loader)
+        pbar = tqdm(loader)
+        num_batches = len(loader)
         for batch_num, (data, target) in enumerate(pbar):
             data, target = data.to(self.device), target.to(self.device)
-            self.optimizer.zero_grad()
+            if train:
+                self.optimizer.zero_grad()
             output = self.model(data)
+            # NLLLoss is averaged across observations for each minibatch
+            ce = self.criterion(torch.log(output+EPS), target)
             Iw = self.getIw()
-            loss = self.criterion(torch.log(output+EPS), target) + 0.5*self.beta*Iw
-            # loss = 0.5*self.beta*self.getIw()
-            loss.backward()
-            self.optimizer.step()
-            train_loss += loss.item()
+            loss = ce + 0.5*self.beta*Iw
+            if train:
+                loss.backward()
+                self.optimizer.step()
+            total_ce += ce.item()
+            total_Iw += Iw.item()
+            total_loss += loss.item()
             prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
+            total_correct += np.sum(prediction[1].cpu().numpy() == target.cpu().numpy())
             total += target.size(0)
-            train_correct += np.sum(prediction[1].cpu().numpy() == target.cpu().numpy())
 
-            pbar.set_description('Train')
-            # pbar.set_description('Train epoch {}/{}'.format(epoch, self.epochs))
-            pbar.set_postfix(loss=train_loss, acc=100. * train_correct / total, total=total, Iw = Iw.item())
+            a = self.model.get_a()
+            pbar.set_description('Train' if train else 'Test')
+            pbar.set_postfix(N=self.N, b=self.beta, ep=epoch, acc=100. * total_correct/total,
+                loss=total_loss/num_batches, ce=total_ce/num_batches, Iw=total_Iw/num_batches, a=a)
+        return total_correct/total, total_loss/num_batches, total_ce/num_batches, total_Iw/num_batches, a
 
-        return train_loss, train_correct / total, Iw.item()
+    def train(self, epoch):
+        self.model.train()
+        return self.do_batch(train=True, epoch=epoch)
 
-    def test(self):
+    def test(self, epoch):
         self.model.eval()
-        test_loss = 0
-        test_correct = 0
-        total = 0
-
         with torch.no_grad():
-            pbar = tqdm(self.test_loader)
-            for batch_num, (data, target) in enumerate(pbar):
-                data, target = data.to(self.device), target.to(self.device)
-                output = self.model(data)
-                Iw = self.getIw()
-                loss = self.criterion(torch.log(output + EPS), target) + 0.5*self.beta*Iw
-                #loss = 0.5*self.beta*self.getIw()
-                test_loss += loss.item()
-                prediction = torch.max(output, 1)
-                total += target.size(0)
-                test_correct += np.sum(prediction[1].cpu().numpy() == target.cpu().numpy())
-
-                pbar.set_description(' Test')
-                pbar.set_postfix(loss=test_loss, acc=100. * test_correct / total, total=total, Iw = Iw.item())
-
-        return test_loss, test_correct / total, Iw.item()
+            return self.do_batch(train=False, epoch=epoch)
 
     def save(self, name=None):
-        model_out_path = (name or self.name) + ".pth"
+        random = '_random' if self.random_labels else ''
+        model_out_path = (name or self.name) + random + ".pth"
         # torch.save(self.model, model_out_path)
         # print("Checkpoint saved to {}".format(model_out_path))
 
@@ -198,23 +187,25 @@ class Solver(object):
         self.load_data()
         self.load_model()
         results = []
-        best_train_acc, best_test_acc, best_ep = -1, -1, -1
-        for epoch in tqdm(range(1, self.epochs + 1)):
+        best_train_acc, best_ep = -1, -1
+        for epoch in range(1, self.epochs + 1):
             # print("\n===> epoch: %d/200" % epoch)
-            train_loss, train_acc, train_Iw = self.train()
+            train_acc, train_loss, train_ce, train_Iw, train_a = self.train(epoch)
             self.scheduler.step(epoch)
-            test_loss, test_acc, test_Iw = self.test()
-            results.append([self.N, self.beta, train_loss, train_acc, train_Iw, test_loss, test_acc, test_Iw])
+            test_acc, test_loss, test_ce, test_Iw, test_a = self.test(epoch)
+            results.append([self.N, self.beta, train_acc, test_acc, train_loss,
+                test_loss, train_ce, test_ce, train_Iw, test_Iw, train_a, test_a])
 
-            if test_acc > best_test_acc:
-                best_test_acc, best_ep = test_acc, epoch
+            if train_acc > best_train_acc:
+                best_train_acc, best_ep = train_acc, epoch
             if self.patience >= 0: # early stopping
                 if best_ep < epoch - self.patience:
                     break
 
         with open(self.name + '.csv', 'a') as f:
             w = csv.writer(f)
-            w.writerow(['N', 'beta', 'train_loss', 'train_acc', 'train_Iw', 'test_loss', 'test_acc', 'test_Iw'])
+            # w.writerow(['N', 'beta', 'train_acc', 'test_acc', 'train_loss',
+            #     'test_loss', 'train_ce', 'test_ce', 'train_Iw', 'test_Iw', 'train_a', 'test_a'])
             w.writerows(results)
         self.save()
 

@@ -50,9 +50,14 @@ class AlexNet(nn.Module):
         x = self.features(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)
-        return x 
+        return x
+
+    def get_a(self):
+        drop = self.classifier[self.dropout_layers_classifier[0]]
+        return drop.alpha.item()
 
     def getIw(self):
         Iw_features = sum(self.features[idx].Iw for idx in self.dropout_layers_features)
         Iw_classifier = sum(self.classifier[idx].Iw for idx in self.dropout_layers_classifier)
-        return Iw_features+Iw_classifier
+        # this is correct only for scalar alpha!
+        return (Iw_features+Iw_classifier)*(7*7*64*384)
