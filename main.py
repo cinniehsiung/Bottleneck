@@ -187,7 +187,7 @@ class Solver(object):
                 pbar.set_description(' Test')
                 pbar.set_postfix(loss=test_loss, acc=100. * test_correct / total, total=total, Iw = Iw.item())
 
-        return test_loss, test_correct / total, Iw
+        return test_loss, test_correct / total, Iw.item()
 
     def save(self, name=None):
         model_out_path = (name or self.name) + ".pth"
@@ -212,7 +212,7 @@ class Solver(object):
                 if best_ep < epoch - self.patience:
                     break
 
-        with open(self.name + '.csv', 'w') as f:
+        with open(self.name + '.csv', 'a') as f:
             w = csv.writer(f)
             w.writerow(['N', 'beta', 'train_loss', 'train_acc', 'train_Iw', 'test_loss', 'test_acc', 'test_Iw'])
             w.writerows(results)
