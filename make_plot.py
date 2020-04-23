@@ -7,17 +7,16 @@ from itertools import product
 def plot_one(ax, data, title, xticklabels, yticklabels, cmap='Greens', annot=True, **kwargs):
     num_rows, num_cols = data.shape
     shifted_y_ticks = np.array([j - i for i,j in product(yticklabels,xticklabels)])
-    shifted_y_ticks = np.unique(np.sort(shifted_y_ticks))
+    shifted_y_ticks = np.unique(np.sort(shifted_y_ticks))[::-1]
     shifted_data = np.zeros((len(shifted_y_ticks), len(xticklabels)))
-    #for b, n in product(np.arange(num_rows), np.arange(num_cols)):
-        #bn = np.argwhere(shifted_y_ticks == -(yticklabels[b] - xticklabels[n]))
-
+    for b, n in product(np.arange(num_rows), np.arange(num_cols)):
+        bn = np.argwhere(shifted_y_ticks == -(yticklabels[b] - xticklabels[n]))
         #print("b {} n {} b-n {}".format(b, n, bn[0]))
-        #shifted_data[bn, n] = data[b,n]
+        shifted_data[bn, n] = data[b,n]
 
-    sns.heatmap(data,
+    sns.heatmap(shifted_data,
         xticklabels=xticklabels,
-        yticklabels=yticklabels,
+        yticklabels=shifted_y_ticks,
         cmap=cmap,
         annot=annot,
         ax=ax,
@@ -68,12 +67,18 @@ def ints(arr):
     return [int(x) if x % 1 == 0 else '' for x in arr]
 
 # x = ns, y = bs
-fig, ax = plt.subplots(3, 2)
+fig, ax = plt.subplots(3, 4)
+# plt.suptitle('repro (real, random), eps (real, random)')
+plot_result(0, 'repro_real.p')
+plot_result(1, 'repro_random.p')
+plot_result(2, 'eps_norand.p')
+plot_result(3, 'eps_rand.p')
+filename='results_random_labels.p'
 
 # still can't reproduce previous examples
-plt.suptitle('stop when test accuracy stops increasing (norand/rand)')
-plot_result(0, '1920alpha_ES_norand.p')
-plot_result(1, '1920alpha_ES_rand.p')
+# plt.suptitle('stop when test accuracy stops increasing (norand/rand)')
+# plot_result(0, '1920alpha_ES_norand.p')
+# plot_result(1, '1920alpha_ES_rand.p')
 
 # last layer random; sharp diagonal but not sure about what the y-axis was
 # plot_result(0, 'results_random_labels.p',
@@ -87,11 +92,6 @@ plot_result(1, '1920alpha_ES_rand.p')
 
 # plot_result(2, 'mul1920_rand.p') # all 1's
 # plot_result(3, 'mul1920_norand.p')
-
-
-# plot_result(0, 'results_conv_layers.p',
-#     xticklabels=np.arange(2, 4.51, 1).astype(int),
-#     yticklabels=np.arange(-2, 3.1, 1).astype(int))
 
 # last layer nonrandom, pretty uniform
 # plot_result(1, 'results_last_layer.p',
