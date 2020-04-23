@@ -35,17 +35,22 @@ def main():
     parser.add_argument('--patience', default=20, type=int, help='epochs to wait for early stopping; default no early stopping')
     parser.add_argument('--N', default=1000, type=int)
     parser.add_argument('--batch_size', default=500, type=int)
-    parser.add_argument('--random_labels', type=bool)
-    parser.add_argument('--cuda', default=torch.cuda.is_available(), type=bool)
+    parser.add_argument('--random_labels', type=int)
+    parser.add_argument('--cuda', default=torch.cuda.is_available(), type=int)
     args = parser.parse_args()
     args.batchnorm = True
 
+    args.name += ('_rand' if args.random_labels else '_norand')
     if args.beta >= 0:
         solver = Solver(args)
         solver.run()
     else:
         print('Grid search')
-        bs = np.arange(-3.5, 3.1, 1) # modified from -3.5
+        with open(args.name + '.csv', 'a') as f:
+            w = csv.writer(f)
+            w.writerow(['N', 'beta', 'train_acc', 'test_acc', 'train_loss',
+                'test_loss', 'train_ce', 'test_ce', 'train_Iw', 'test_Iw', 'train_a', 'test_a'])
+        bs = np.arange(-3.5, 3.1, 1)
         ns = np.arange(2, 4.51, 1)
         bns = []
         train_acc = -1*np.ones((len(bs), len(ns)))
@@ -55,7 +60,7 @@ def main():
             b, n = bs[i], ns[j]
             args.beta = 10**b
             args.N = int(10**n)
-            bns.append(bs[i] - ns[i])
+            bns.append(bs[i] - ns[j])
             print("beta: {}, \t N: {}".format(args.beta, args.N))
             
             args.batch_size = min(args.N, 500)
@@ -178,8 +183,7 @@ class Solver(object):
             return self.do_batch(train=False, epoch=epoch)
 
     def save(self, name=None):
-        random = '_random' if self.random_labels else ''
-        model_out_path = (name or self.name) + random + ".pth"
+        model_out_path = (name or self.name) + ".pth"
         # torch.save(self.model, model_out_path)
         # print("Checkpoint saved to {}".format(model_out_path))
 
@@ -187,7 +191,7 @@ class Solver(object):
         self.load_data()
         self.load_model()
         results = []
-        best_train_acc, best_ep = -1, -1
+        best_acc, best_ep = -1, -1
         for epoch in range(1, self.epochs + 1):
             # print("\n===> epoch: %d/200" % epoch)
             train_acc, train_loss, train_ce, train_Iw, train_a = self.train(epoch)
@@ -196,16 +200,14 @@ class Solver(object):
             results.append([self.N, self.beta, train_acc, test_acc, train_loss,
                 test_loss, train_ce, test_ce, train_Iw, test_Iw, train_a, test_a])
 
-            if train_acc > best_train_acc:
-                best_train_acc, best_ep = train_acc, epoch
+            if test_acc > best_acc:
+                best_acc, best_ep = test_acc, epoch
             if self.patience >= 0: # early stopping
                 if best_ep < epoch - self.patience:
                     break
 
         with open(self.name + '.csv', 'a') as f:
             w = csv.writer(f)
-            # w.writerow(['N', 'beta', 'train_acc', 'test_acc', 'train_loss',
-            #     'test_loss', 'train_ce', 'test_ce', 'train_Iw', 'test_Iw', 'train_a', 'test_a'])
             w.writerows(results)
         self.save()
 

@@ -41,7 +41,7 @@ class AlexNet(nn.Module):
             nn.BatchNorm1d(num_features=192) if use_bn else nn.Identity(),
             nn.ReLU(inplace=True),
             #nn.Linear(192, 10),
-            LogNormalDropoutSingle(device=device, shape=(B, 10), max_alpha=max_alpha, 
+            LogNormalDropout(device=device, shape=(B, 10), max_alpha=max_alpha, 
                 module=nn.Linear, in_features=192, out_features=10),
             nn.Softmax(dim=1),
         )
@@ -54,10 +54,9 @@ class AlexNet(nn.Module):
 
     def get_a(self):
         drop = self.classifier[self.dropout_layers_classifier[0]]
-        return drop.alpha.item()
+        return drop.alpha.norm().item()
 
     def getIw(self):
         Iw_features = sum(self.features[idx].Iw for idx in self.dropout_layers_features)
         Iw_classifier = sum(self.classifier[idx].Iw for idx in self.dropout_layers_classifier)
-        # this is correct only for scalar alpha!
-        return (Iw_features+Iw_classifier)*(7*7*64*384)
+        return (Iw_features+Iw_classifier)
