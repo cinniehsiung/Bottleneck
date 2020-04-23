@@ -50,6 +50,10 @@ class AlexNet(nn.Module):
         x = self.classifier(x)
         return x 
 
+    def get_a(self):
+        drop = self.classifier[self.dropout_layers_classifier[0]]
+        return drop.alpha.norm().item()
+
     def getIw(self):
         Iw_features = sum(self.features[idx].Iw for idx in self.dropout_layers_features)
         Iw_classifier = sum(self.classifier[idx].Iw for idx in self.dropout_layers_classifier)
