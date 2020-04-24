@@ -139,7 +139,10 @@ class Solver(object):
 
 
     def getIw(self):
-        return self.model.getIw()/self.batch_size
+        # Iw should be normalized with respect to N
+        # via reparameterization, we optimize alpha with only 1920 dimensions
+        # but Iw should scale with the dimension of the weights
+        return 7*7*64*384/1920*self.model.getIw()/self.batch_size
 
     def do_batch(self, train, epoch):
         loader = self.train_loader if train else self.test_loader

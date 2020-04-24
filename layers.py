@@ -10,7 +10,7 @@ class LogNormalDropout(nn.Module):
 
         # copying constants from https://github.com/ucla-vision/information-dropout/blob/master/cifar.py
         self.max_alpha = max_alpha
-        self.eps = 0.001 #1e-5
+        self.eps = 1e-4
 
         self.layer = module(**params)
         self.layer_noise = module(**params)
