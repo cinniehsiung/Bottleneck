@@ -50,8 +50,8 @@ def main():
             w = csv.writer(f)
             w.writerow(['N', 'beta', 'train_acc', 'test_acc', 'train_loss',
                 'test_loss', 'train_ce', 'test_ce', 'train_Iw', 'test_Iw', 'train_a', 'test_a'])
-        bs = np.arange(-3.5, 3.1, 1)
-        ns = np.arange(2, 4.51, 1)
+        bs = np.arange(-3.5, 3.6, 0.25)
+        ns = np.arange(2, 4.51, 0.25)
         bns = []
         train_acc = -1*np.ones((len(bs), len(ns)))
         test_acc = -1*np.ones((len(bs), len(ns)))
